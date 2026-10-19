@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171b19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Twelve reference pitches, a chromatic tuner, and a guitar tuner. Simple, private, and ready for your Home Screen.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="./icon.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Pitch Pipe</title>
+</head>
+<body>
+<main class="app">
+  <header><h1>Pitch Pipe</h1><span class="reference">A4 = 440 Hz</span></header>
+  <nav class="modes" aria-label="Mode">
+    <button data-mode="pipe" aria-pressed="true">Pitch pipe</button>
+    <button data-mode="tuner" aria-pressed="false">Tuner</button>
+    <button data-mode="guitar" aria-pressed="false">Guitar</button>
+  </nav>
+  <section class="readout" aria-label="Pitch display">
+    <div id="context" class="context">REFERENCE PITCH</div>
+    <div class="note"><span id="note">—</span><span id="octave-label"></span></div>
+    <div id="frequency" class="frequency">Choose a note</div>
+    <div id="meter" class="meter" hidden>
+      <div class="scale" role="meter" aria-label="Cents from target" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0" aria-valuetext="No pitch detected">
+        <span class="in-tune-zone"></span><span class="zero"></span><span id="needle" hidden></span>
+      </div>
+      <div class="meter-labels"><span>♭</span><span id="cents">Sing or play one note</span><span>♯</span></div>
+    </div>
+  </section>
+  <section id="pipe-panel" aria-label="Pitch pipe">
+    <div id="notes" class="notes"></div>
+    <div class="octave-control"><span>Octave</span><div class="segments" role="group" aria-label="Octave">
+      <button data-octave="3" aria-pressed="false">3</button><button data-octave="4" aria-pressed="true">4</button><button data-octave="5" aria-pressed="false">5</button>
+    </div></div>
+    <div class="volume"><label for="volume">Volume</label><input id="volume" type="range" min="0.02" max="0.35" step="0.01" value="0.18"></div>
+    <button id="stop-tone" class="secondary wide" disabled>Stop sound</button>
+    <p class="hint">Tap a playing note to stop.</p>
+  </section>
+  <section id="tuner-panel" aria-label="Tuner controls" hidden>
+    <div id="guitar-controls" hidden>
+      <div class="string-heading"><span>Standard tuning</span><button id="auto" class="small" aria-pressed="true">Auto</button></div>
+      <div id="strings" class="strings" role="group" aria-label="Guitar string"></div>
+      <p id="string-hint" class="hint">Thickest → thinnest · tap a string to lock.</p>
+      <button id="reference-tone" class="secondary wide">Play E2 reference</button>
+    </div>
+    <button id="listen" class="primary wide"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><span>Listen</span></button>
+    <p id="listen-hint" class="hint">Audio stays on your device.</p>
+  </section>
+  <p id="error" class="error" role="alert" hidden></p>
+  <footer>
+    <details><summary>Use on your iPhone</summary><p>Open this page in Safari, then tap <strong>Share → Add to Home Screen</strong>. Turn on <strong>Open as Web App</strong> if shown.</p><p id="offline-status">Checking offline support…</p><p>Allow the microphone when you tap Listen. Play one note at a time. Sound and listening stop when you leave the app.</p></details>
+    <p class="footnote">Equal temperament · <span id="connection-status">On-device audio</span></p>
+  </footer>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
