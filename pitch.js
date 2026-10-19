@@ -20,7 +20,7 @@ export function detectPitch(samples, sampleRate) {
   for (let i = 0; i < n; i++) mean += samples[i];
   mean /= n;
   for (let i = 0; i < n; i++) energy += (samples[i] - mean) ** 2;
-  if (energy / n < 0.00001) return null;
+  if (energy / n < 0.0000001) return null;
   const difference = new Float64Array(max + 1), normalized = new Float64Array(max + 1);
   normalized.fill(1);
   let running = 0;

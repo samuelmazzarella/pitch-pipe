@@ -1,8 +1,9 @@
 import { NAMES, SPOKEN, STRINGS, frequency, reading, centsFrom, nearestString } from './pitch.js';
 const $ = id => document.getElementById(id);
 let mode = 'pipe', octave = 4, volume = .18, selectedString = null, detectedString = null;
-let context, tone, toneGain, playing = null, stream, analyser, microphone, listening = false, requesting = false;
-let generation = 0, animation, lastFrame = 0, recent = [], workerBusy = false, worker;
+let context, tone, toneGain, playing = null, stream, analyser, microphone, silentOutput, listening = false, requesting = false;
+let generation = 0, animation, lastFrame = 0, recent = [], workerBusy = false, worker, workerTimer;
+let lastSignal = 0, listenStarted = 0;
 try {
   const saved = JSON.parse(localStorage.getItem('pitch-pipe-preferences') || '{}');
   if ([3,4,5].includes(saved.octave)) octave = saved.octave;
@@ -16,7 +17,7 @@ function getContext() {
   if (!context || context.state === 'closed') {
     context = new AudioContext();
     context.addEventListener('statechange', () => {
-      if (context.state === 'interrupted' || (context.state === 'suspended' && (playing !== null || listening))) {
+      if (!requesting && (playing !== null || listening) && (context.state === 'interrupted' || context.state === 'suspended')) {
         stopAll(); error('Audio was interrupted. Tap a note or Listen to resume.');
       }
     });
@@ -112,6 +113,9 @@ function stopListening() {
   if (stream) stream.getTracks().forEach(track => track.stop());
   stream = null;
   microphone?.disconnect(); microphone = null; analyser?.disconnect(); analyser = null;
+  silentOutput?.disconnect(); silentOutput = null;
+  clearTimeout(workerTimer); workerTimer = null;
+  worker?.terminate(); worker = null; workerBusy = false;
   updateListen(); display(null); updateStrings();
 }
 function stopAll() { stopListening(); stopTone(); }
@@ -135,6 +139,7 @@ function getWorker() {
   if (!worker) {
     worker = new Worker(new URL('./pitch-worker.js', import.meta.url), {type:'module'});
     worker.onmessage = ({data}) => {
+      clearTimeout(workerTimer); workerTimer = null;
       workerBusy = false;
       if (!listening || data.generation !== generation) return;
       let hz = data.frequency;
@@ -146,7 +151,7 @@ function getWorker() {
       display(hz); if (mode === 'guitar') updateStrings();
     };
     worker.onerror = () => {
-      stopListening(); worker.terminate(); worker = null; workerBusy = false;
+      stopListening();
       error('The tuner could not load. Reopen this page while online and try again.');
     };
   }
@@ -157,8 +162,26 @@ function sample(now) {
   if (!workerBusy && now - lastFrame >= 85) {
     const samples = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(samples);
+    let mean = 0, energy = 0;
+    for (const value of samples) mean += value;
+    mean /= samples.length;
+    for (const value of samples) energy += (value - mean) ** 2;
+    if (Math.sqrt(energy / samples.length) >= .0003) lastSignal = now;
+    const muted = stream.getAudioTracks().some(track => track.muted);
+    $('listen-hint').textContent = muted ? 'Microphone paused by your phone. Close other apps using it.'
+      : lastSignal && now - lastSignal < 600 ? 'Hearing sound · hold one steady note'
+      : now - listenStarted > 2000 ? 'Microphone is quiet · sing or play closer to your phone'
+      : 'Listening · audio stays on this device';
     workerBusy = true; lastFrame = now;
-    getWorker().postMessage({samples, sampleRate:context.sampleRate, generation}, [samples.buffer]);
+    try {
+      getWorker().postMessage({samples, sampleRate:context.sampleRate, generation}, [samples.buffer]);
+      workerTimer = setTimeout(() => {
+        stopListening(); error('Pitch detection did not start. Reopen this page while online, then tap Listen again.');
+      }, 3000);
+    } catch {
+      stopListening(); error('Pitch detection could not start. Reopen this page while online and try again.');
+      return;
+    }
   }
   animation = requestAnimationFrame(sample);
 }
@@ -181,11 +204,23 @@ async function listen() {
     analyser = audio.createAnalyser();
     analyser.fftSize = audio.sampleRate > 96000 ? 16384 : audio.sampleRate > 48000 ? 8192 : 4096;
     analyser.smoothingTimeConstant = 0;
-    microphone.connect(analyser); // Never connect microphone audio to the speakers.
+    // Keep the capture graph rendering on Safari. Zero gain prevents microphone playback.
+    silentOutput = audio.createGain();
+    silentOutput.gain.value = 0;
+    microphone.connect(analyser); analyser.connect(silentOutput); silentOutput.connect(audio.destination);
+    // Enabling capture can change the iPhone audio session after the first resume.
+    let resumeTimer;
+    try {
+      await Promise.race([audio.resume(), new Promise((_, reject) => {
+        resumeTimer = setTimeout(() => reject(new Error('Audio startup timed out')), 4000);
+      })]);
+    } finally { clearTimeout(resumeTimer); }
+    if (token !== generation) { acquired.getTracks().forEach(t => t.stop()); return; }
+    if (audio.state !== 'running') throw new Error('Audio processing did not start');
     stream.getTracks().forEach(track => track.addEventListener('ended', () => {
       if (listening && generation === token) { stopListening(); error('Microphone disconnected. Tap Listen to try again.'); }
     }));
-    requesting = false; listening = true; recent = []; lastFrame = 0;
+    requesting = false; listening = true; recent = []; lastFrame = 0; lastSignal = 0; listenStarted = performance.now();
     updateListen(); display(null); animation = requestAnimationFrame(sample);
   } catch (e) {
     acquired?.getTracks().forEach(t => t.stop());
@@ -226,7 +261,7 @@ if ('serviceWorker' in navigator) {
     await navigator.serviceWorker.ready;
     function ask() { registration.active?.postMessage('offline-status'); }
     navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data === 'offline-ready') $('offline-status').textContent = 'Saved for offline use on this device. Your browser may clear saved files if storage runs low.';
+      if (e.data === 'offline-ready') $('offline-status').textContent = 'Version 1.1 · Saved for offline use on this device. Your browser may clear saved files if storage runs low.';
     });
     navigator.serviceWorker.addEventListener('controllerchange', ask);
     ask();
