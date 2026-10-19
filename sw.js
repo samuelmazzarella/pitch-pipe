@@ -1,5 +1,5 @@
-const CACHE = 'pitch-pipe-v1.1';
-const FILES = ['./','./index.html','./styles.css','./app.js','./pitch.js','./pitch-worker.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
+const CACHE = 'pitch-pipe-v1.2';
+const FILES = ['./','./index.html','./styles.css','./app.js','./pitch.js','./tone.js','./pitch-worker.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);

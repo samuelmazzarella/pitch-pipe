@@ -1,4 +1,5 @@
 import { NAMES, SPOKEN, STRINGS, frequency, reading, centsFrom, nearestString } from './pitch.js';
+import { createReferenceTone } from './tone.js';
 const $ = id => document.getElementById(id);
 let mode = 'pipe', octave = 4, volume = .18, selectedString = null, detectedString = null;
 let context, tone, toneGain, playing = null, stream, analyser, microphone, silentOutput, listening = false, requesting = false;
@@ -127,8 +128,7 @@ async function play(midi) {
     const audio = getContext();
     await audio.resume();
     if (token !== generation) return;
-    tone = audio.createOscillator(); toneGain = audio.createGain();
-    tone.type = 'sine'; tone.frequency.setValueAtTime(frequency(midi), audio.currentTime);
+    tone = createReferenceTone(audio, midi); toneGain = audio.createGain();
     toneGain.gain.setValueAtTime(0, audio.currentTime);
     toneGain.gain.linearRampToValueAtTime(volume, audio.currentTime + .015);
     tone.connect(toneGain); toneGain.connect(audio.destination); tone.start(); playing = midi;
@@ -261,7 +261,7 @@ if ('serviceWorker' in navigator) {
     await navigator.serviceWorker.ready;
     function ask() { registration.active?.postMessage('offline-status'); }
     navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data === 'offline-ready') $('offline-status').textContent = 'Version 1.1 · Saved for offline use on this device. Your browser may clear saved files if storage runs low.';
+      if (e.data === 'offline-ready') $('offline-status').textContent = 'Version 1.2 · Saved for offline use on this device. Your browser may clear saved files if storage runs low.';
     });
     navigator.serviceWorker.addEventListener('controllerchange', ask);
     ask();
